@@ -10,6 +10,9 @@ import Principal "mo:base/Principal";
 import Option "mo:base/Option";
 import Result "mo:base/Result";
 
+/// This code has been adapted from the [reference implementation](https://github.com/dfinity/ICRC-1/blob/26a80d777e079644cd69e883e18dad1a201f5b1a/ref/Account.mo)
+/// and [icrc1](https://github.com/NatLabs/icrc1/blob/37ff10bd96ea8e66fe5ef5ebad925965761afd20/src/ICRC1/Account.mo).
+
 module {
 	public type Account = { owner : Principal; subaccount : ?Blob };
 	public type ParseError = {
@@ -18,11 +21,44 @@ module {
 		#bad_checksum;
 	};
 
+	/// Checks if a subaccount is valid
+	///
+	/// Example:
+	/// ```motoko
+	/// assert validateSubaccount(Blob.fromArray([0x00, 0x00, 0x00, 0x00])) == false;
+	/// ```
+	public func validateSubaccount(subaccount : ?Blob) : Bool {
+		switch (subaccount) {
+			case (?bytes) {
+				bytes.size() == 32;
+			};
+			case (_) true;
+		};
+	};
+
+	/// Checks if an account is valid
+	///
+	/// Example:
+	/// ```motoko
+	/// assert validate({ owner = Principal.fromText("2chl6-4hpzw-vqaaa-aaaaa-c"); subaccount = null }) == true;
+	/// ```
+	public func validate({ owner; subaccount } : Account) : Bool {
+		let is_anonymous = Principal.isAnonymous(owner);
+		let invalid_size = Principal.toBlob(owner).size() > 29;
+
+		if (is_anonymous or invalid_size) {
+			false;
+		} else {
+			validateSubaccount(subaccount);
+		};
+	};
+
 	/// Converts an account to text.
 	///
 	/// Example:
 	/// ```motoko
 	/// assert toText({ owner = Principal.fromText("2chl6-4hpzw-vqaaa-aaaaa-c") }) == "2chl6-4hpzw-vqaaa-aaaaa-c";
+	/// ```
 	public func toText({ owner; subaccount } : Account) : Text {
 		let ownerText = Principal.toText(owner);
 		switch (subaccount) {
@@ -43,6 +79,7 @@ module {
 	/// Example:
 	/// ```motoko
 	/// assert fromText("2chl6-4hpzw-vqaaa-aaaaa-c") == #ok({ owner = Principal.fromText("2chl6-4hpzw-vqaaa-aaaaa-c"); subaccount = null });
+	/// ```
 	public func fromText(text : Text) : Result.Result<Account, ParseError> {
 		let n = text.size();
 
